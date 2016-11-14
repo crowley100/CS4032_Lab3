@@ -44,15 +44,9 @@ runServer port = do
     sock <- socket AF_INET Stream 0            -- new socket
     setSocketOption sock ReuseAddr 1           -- make socket reuseable
     bind sock (SockAddrInet (fromIntegral port) iNADDR_ANY)   -- listen on port.
-    listen sock 3                             
-    (input,output) <- threadPoolIO myPool hdlConn   -- 50 workers
-    -- testing
-    -- init maps
+    listen sock 2  
     let rooms = empty
-        clients = empty
-    --    clients = Map empty
-    --    
-  
+    (input,output) <- threadPoolIO myPool hdlConn   -- 50 workers
     
     --let str = roomName myRoom -- accessing elements of datatype
     --print str
@@ -78,18 +72,19 @@ hdlConn (port,(sock, _)) = do
     let hiMsg = myResponse msg "134.226.32.10" port
     print hiMsg
     
+    -- FIGURE OUT TVAR FOR SHARED MAP
     -- watch for spaces in parsing (e.g. in join param 1(2))
     -- error handling here: accepted <- try (handler params) case accepted of Left error Right finish
     case head lines of
-        "KILL_SERVICE" -> sClose sock
+        "KILL_SERVICE" -> sClose sock -- clean up first?
         "HELO" -> hPutStr handle hiMsg
-        --"DISCONNECT:" -> clientDisc handle (splitColon $ lines!!2)
-        --"JOIN_CHATROOM:" -> clientJoin handle (splitColon $ head lines) (splitColon $ lines!!3)
-        --"LEAVE_CHATROOM:" -> clientLeave handle (read $ splitColon $ head lines) (splitColon $ lines!!1) (splitColon $ lines!!2) --nother read??
-        --"CHAT:" -> clientChat (read $ splitColon $ head lines) (splitColon $ lines!!2) (splitColon $ lines!!3)
+        "DISCONNECT:" -> hClose handle --kill all threads first or handle exceptions
+        --"JOIN_CHATROOM:" -> clientJoin (fork thread for reading, ret tID to user) maybe pop local list of rooms
+        --"LEAVE_CHATROOM:" -> clientLeave (kill sent joinID as it will match above (try to))
+        --"CHAT:" -> clientChat (check local list of rooms for ref, broadcast message)
         _ -> putStrLn $ "Unknown Message:" ++ msg
     
-    hClose handle
+    hClose handle -- loop up here instead
   
 myResponse :: String -> String -> Int -> String
 myResponse msg host port = msg ++ "\n" ++
@@ -100,10 +95,6 @@ myResponse msg host port = msg ++ "\n" ++
 -- syntax?                      
 splitColon :: String -> String
 splitColon str = (splitOn ":" str) !! 1
-
--- WORKING HERE: LOOK AT HOW TO SET UP AN ENVIRONMENT TO ACCESS MAPS
---clientJoin :: Handle -> String -> String -> IO () -- return type?
---clientJoin handle roomName clientName
     
 main :: IO ()
 main = withSocketsDo $ do
