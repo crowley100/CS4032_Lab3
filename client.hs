@@ -20,7 +20,12 @@ msgSender sock = do
   handle <- socketToHandle sock ReadWriteMode
   hSetBuffering handle LineBuffering
   putStrLn "Enter message..."
-  msg <- getLine
+  --msg <- getLine
+  let msg = "JOIN_CHATROOM: room1" ++ "\n" ++
+            "CLIENT_IP: 0" ++ "\n" ++
+            "PORT: 0" ++ "\n" ++
+            "CLIENT_NAME: dave"
+  print msg
   hPutStrLn handle msg
   rMsg <- hGetContents handle
   putStrLn rMsg
