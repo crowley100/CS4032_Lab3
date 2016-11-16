@@ -104,6 +104,9 @@ hdlConn (idMap,roomNames,roomMap,port,handle) = do
                 print "hereNOW"
                 --print hiMsg
                 hPutStr handle hiMsg
+                hClose handle
+                t <- myThreadId
+                killThread t
             "DISCONNECT" -> hClose handle --kill all threads first or handle exceptions and send response! (send all leave responses)
             "JOIN_CHATROOM" -> do 
                 -- CHECK IF CLIENT IN ROOM HERE!!
