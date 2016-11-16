@@ -67,6 +67,7 @@ hdlConn (idMap,roomNames,roomMap,port,handle) = do
     t <- myThreadId
     print ("THREAD EXECTUING: " ++ (show t))
     fix $ \loop -> do
+        threadDelay 100000000
         print "top of loop!"
         let myIOHead = hGetLine handle
         myHead <- myIOHead
@@ -151,7 +152,6 @@ hdlConn (idMap,roomNames,roomMap,port,handle) = do
                                 writeChan dupe (head myLines ++ "\n" ++ (myLines !! 2) ++ "\n" ++ (myLines !! 3) ++ "\n")
             _ -> hPutStrLn handle $ "Unknown Message:" ++ msg
         print "loop end"
-        threadDelay 1000000
         loop
     print "DOWN HERE!"
     hClose handle
