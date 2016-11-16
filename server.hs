@@ -19,18 +19,6 @@ import qualified Data.Map as Map
 
 myPool = 50
 
-data Client = Client
-    { clientID :: Int
-    , clientNick :: String
-    , clientConn :: Socket
-    }
-
-data Room = Room
-    { roomID :: Int
-    , roomName :: String
-    , roomClients :: [String]
-    } 
-
 threadPoolIO :: Int -> (a -> IO b) -> IO (Chan a, Chan b)
 threadPoolIO nr mutator = do
     input <- newChan
@@ -157,7 +145,7 @@ hdlConn (idMap,roomNames,roomMap,port,handle) = do
                                 hPutStrLn handle (errmsg 0 "server error")
                             Just chan -> do
                                 dupe <- dupChan chan
-                                writeChan dupe (head myLines ++ "\n" ++ (myLines !! 2) ++ "\n" ++ (myLines !! 3))
+                                writeChan dupe (head myLines ++ "\n" ++ (myLines !! 2) ++ "\n" ++ (myLines !! 3) ++ "\n")
             _ -> hPutStrLn handle $ "Unknown Message:" ++ msg
         loop
     print "DOWN HERE!"
@@ -185,7 +173,7 @@ clientJoin handle port roomNames roomName clientName roomMap = do
             atomically $ modifyTVar roomMap (Map.insert ((words (show listener)) !! 1) chan)
             atomically $ modifyTVar roomNames (Map.insert roomName ((words (show listener)) !! 1))
             let response = "JOINED_CHATROOM:" ++ roomName ++ "\n" ++
-                           "SERVER_IP:134.226.32.10" ++ "\n" ++
+                           "SERVER_IP:10.62.0.197" ++ "\n" ++
                            "PORT:" ++ (show port) ++ "\n" ++
                            "ROOM_REF:" ++ ((words (show listener)) !! 1) ++ "\n" ++
                            "JOIN_ID:" ++ ((words (show listener)) !! 1)
