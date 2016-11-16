@@ -234,6 +234,7 @@ splitColon str = (splitOn ":" str) !! 1
     
 ioTakeWhile :: (a -> Bool) -> (a -> Bool) -> (a -> Bool) -> [IO a] -> IO [a]
 ioTakeWhile pred1 pred2 pred3 actions = do
+  print "DOWN HERE SON"
   x <- head actions
   if (pred2 x || pred3 x)
     then return [x]
