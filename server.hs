@@ -67,7 +67,7 @@ hdlConn (idMap,roomNames,roomMap,port,handle) = do
     t <- myThreadId
     print ("THREAD EXECTUING: " ++ (show t))
     fix $ \loop -> do
-        threadDelay 100000000
+        threadDelay 1000000
         print "top of loop!"
         let myIOHead = hGetLine handle
         myHead <- myIOHead
