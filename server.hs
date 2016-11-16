@@ -67,6 +67,7 @@ hdlConn (idMap,roomNames,roomMap,port,handle) = do
     t <- myThreadId
     print ("THREAD EXECTUING: " ++ (show t))
     fix $ \loop -> do
+        print "top of loop!"
         let myIOHead = hGetLine handle
         myHead <- myIOHead
         let header = ((splitOn ":" myHead) !!0)
