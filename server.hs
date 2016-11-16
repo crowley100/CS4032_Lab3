@@ -70,11 +70,13 @@ hdlConn (idMap,roomNames,roomMap,port,handle) = do
         print "top of loop!"
         let myIOHead = hGetLine handle
         myHead <- myIOHead
+        print ("yip: " ++ myHead)
         let header = ((splitOn ":" myHead) !!0)
             lineActions = repeat (hGetLine handle)
             pred = if (header == "CHAT")
                        then (isInfixOf "MESSAGE")
                        else (isInfixOf "CLIENT_NAME")
+        print "yopie"
         lines <- if (myHead == "HELO BASE_TEST" || myHead == "KILL_SERVICE")
                         then return []
                         else ioTakeWhile pred lineActions
