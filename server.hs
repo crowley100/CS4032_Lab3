@@ -62,7 +62,7 @@ mainLoop :: Socket -> TVar (Map String String) -> TVar (Map String (Chan String)
 mainLoop sock roomNames roomMap input port = do
     t <- myThreadId
     let tstr = (words (show t)) !! 1
-    print (tstr ++ " mainloop!")
+    --print (tstr ++ " mainloop!")
     --print ("main line..." ++ (show t))
     (conn,_) <- accept sock     -- accept a new client connection
     handle <- socketToHandle conn ReadWriteMode
@@ -79,13 +79,19 @@ hdlConn (idMap,roomNames,roomMap,port,handle) = do
     t <- myThreadId
     print ("THREAD EXECTUING: " ++ (show t))
     fix $ \loop -> do
-        print "boop"
-        let lineActions = repeat (hGetLine handle)
-        myLines <- ioTakeWhile (isInfixOf "CLIENT_NAME") (isInfixOf "MESSAGE") (== "HELO BASE_TEST") (== "KILL_SERVICE") lineActions
+        let myIOHead = hGetLine handle
+        myHead <- myIOHead
+        let header = ((splitOn ":" myHead) !!0)
+            lineActions = repeat (hGetLine handle)
+            pred = if (header == "CHAT")
+                       then (isInfixOf "MESSAGE")
+                       else (isInfixOf "CLIENT_NAME")
+        lines <- ioTakeWhile pred (== "HELO BASE_TEST") (== "KILL_SERVICE") lineActions
+        let myLines = ([myHead] ++ lines)
+            msg = concat myLines
         print myLines
-        let msg = concat myLines
         -- error handling here: accepted <- try (handler params) case accepted of Left error Right finish
-        let header = (splitOn ":" (head myLines) !!0)
+        
         print ("YO -> " ++ header)
         case header of
             "KILL_SERVICE" -> do
@@ -101,6 +107,7 @@ hdlConn (idMap,roomNames,roomMap,port,handle) = do
             "DISCONNECT" -> hClose handle --kill all threads first or handle exceptions and send response! (send all leave responses)
             "JOIN_CHATROOM" -> do 
                 -- CHECK IF CLIENT IN ROOM HERE!!
+                print "im here"
                 tId <- clientJoin handle port roomNames (splitColon $ head myLines) (splitColon $ myLines !! 3) roomMap
                 ids <- readMVar idMap
                 let newId = ((words (show tId)) !! 1)
@@ -134,7 +141,7 @@ hdlConn (idMap,roomNames,roomMap,port,handle) = do
             "CHAT" -> do
                 rooms <- atomically $ readTVar roomMap
                 ids <- readMVar idMap
-                let joinId = splitColon $ myLines !! 2
+                let joinId = splitColon $ myLines !! 1
                     roomRef = splitColon $ head myLines
                 case Map.lookup joinId ids of
                     Nothing -> do
@@ -222,14 +229,14 @@ errmsg code desc = "ERROR_CODE: " ++ show code ++ "\n" ++
 splitColon :: String -> String
 splitColon str = (splitOn ":" str) !! 1
     
-ioTakeWhile :: (a -> Bool) -> (a -> Bool) -> (a -> Bool) -> (a -> Bool) -> [IO a] -> IO [a]
-ioTakeWhile pred1 pred2 pred3 pred4 actions = do
+ioTakeWhile :: (a -> Bool) -> (a -> Bool) -> (a -> Bool) -> [IO a] -> IO [a]
+ioTakeWhile pred1 pred2 pred3 actions = do
   x <- head actions
-  if (pred3 x || pred4 x)
+  if (pred2 x || pred3 x)
     then return [x]
-    else if (pred1 x || pred2 x)
+    else if (pred1 x)
          then return [x]
-         else (ioTakeWhile pred1 pred2 pred3 pred4 (tail actions)) >>= \xs -> return (x:xs)
+         else (ioTakeWhile pred1 pred2 pred3 (tail actions)) >>= \xs -> return (x:xs)
 
 
 main :: IO ()

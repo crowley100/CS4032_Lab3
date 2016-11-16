@@ -6,6 +6,9 @@ import System.Posix.Unistd
 import System.Exit
 import System.Environment
 import Control.Concurrent
+import Control.Monad.Fix (fix)
+import Data.List
+
 client :: String -> Int -> IO ()
 client host port = withSocketsDo $ do
                 addrInfo <- getAddrInfo Nothing (Just host) (Just $ show port)
@@ -18,24 +21,61 @@ msgSender :: Socket -> IO ()
 msgSender sock = do
   handle <- socketToHandle sock ReadWriteMode
   hSetBuffering handle LineBuffering
-  --msg <- getLine
-  let msg = "JOIN_CHATROOM:room1" ++ "\n" ++
-            "CLIENT_IP:0" ++ "\n" ++
-            "PORT:0" ++ "\n" ++
-            "CLIENT_NAME:dave"
-  hPutStrLn handle msg
-  rMsg <- hGetLine handle
-  print rMsg
-  --{-
-  let msg2 = "LEAVE_CHATROOM:52" ++ "\n" ++
-            "JOIN_ID:52" ++ "\n" ++
-            "CLIENT_NAME:dave"
-  hPutStrLn handle msg2
-  rMsg2 <- hGetLine handle
-  print rMsg2 ---}
+  fix $ \loop -> do
+      msg <- getLine
+      case head (words msg) of
+        "join" -> do
+            let myMsg = "JOIN_CHATROOM:" ++ ((words msg)!!1) ++ "\n" ++
+                      "CLIENT_IP:0" ++ "\n" ++
+                      "PORT:0" ++ "\n" ++
+                      "CLIENT_NAME:" ++ ((words msg)!!2)
+            hPutStrLn handle myMsg
+        "leave" -> do
+            let myMsg = "LEAVE_CHATROOM:" ++ ((words msg)!!1) ++ "\n" ++
+                       "JOIN_ID:" ++ ((words msg)!!2) ++ "\n" ++
+                       "CLIENT_NAME:" ++ ((words msg)!!3)
+            hPutStrLn handle myMsg
+        "disc" -> do
+            let myMsg = "DISCONNECT:0" ++ "\n" ++
+                       "PORT:0" ++ "\n" ++
+                       "CLIENT_NAME:" ++ ((words msg)!!1)
+            hPutStrLn handle myMsg
+            hClose handle
+            t <- myThreadId
+            killThread t
+        "chat" -> do
+            let myMsg = "CHAT:" ++ ((words msg)!!1) ++ "\n" ++
+                      "JOIN_ID:" ++ ((words msg)!!2) ++ "\n" ++
+                      "CLIENT_NAME:" ++ ((words msg)!!3) ++ "\n" ++
+                      "MESSAGE:" ++ ((words msg)!!4)
+            hPutStrLn handle myMsg
+        "helo" -> do
+            let myMsg = "HELO BASE_TEST"
+            hPutStrLn handle myMsg
+        "kill" -> do
+            let myMsg = "KILL_SERVICE"
+            hPutStrLn handle myMsg
+            hClose handle
+            t <- myThreadId
+            killThread t
+        _ -> do 
+            print "oops"
+      let lineActions = repeat (hGetLine handle)
+      myLines <- ioTakeWhile (isInfixOf "JOIN_ID") (isInfixOf "MESSAGE") (isInfixOf "Student") lineActions
+      print "return msg..."
+      let rmsg = concat myLines
+      print rmsg
+      loop
   print "sleeping"
   threadDelay 10000000 -- 10 seconds
   hClose handle
+
+ioTakeWhile :: (a -> Bool) -> (a -> Bool) -> (a -> Bool) -> [IO a] -> IO [a]
+ioTakeWhile pred1 pred2 pred3 actions = do
+  x <- head actions
+  if (pred1 x || pred2 x || pred3 x)
+     then return [x]
+     else (ioTakeWhile pred1 pred2 pred3 (tail actions)) >>= \xs -> return (x:xs)
 
 main :: IO ()
 main = withSocketsDo $ do
