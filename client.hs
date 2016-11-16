@@ -23,6 +23,8 @@ msgSender sock = do
   hSetBuffering handle LineBuffering
   fix $ \loop -> do
       msg <- getLine
+      print "got this..."
+      print msg
       case head (words msg) of
         "join" -> do
             let myMsg = "JOIN_CHATROOM:" ++ ((words msg)!!1) ++ "\n" ++
@@ -50,8 +52,10 @@ msgSender sock = do
                       "MESSAGE:" ++ ((words msg)!!4)
             hPutStrLn handle myMsg
         "helo" -> do
+            print "saying hi"
             let myMsg = "HELO BASE_TEST"
             hPutStrLn handle myMsg
+            --hClose handle
         "kill" -> do
             let myMsg = "KILL_SERVICE"
             hPutStrLn handle myMsg

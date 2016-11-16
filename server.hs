@@ -86,7 +86,9 @@ hdlConn (idMap,roomNames,roomMap,port,handle) = do
             pred = if (header == "CHAT")
                        then (isInfixOf "MESSAGE")
                        else (isInfixOf "CLIENT_NAME")
-        lines <- ioTakeWhile pred (== "HELO BASE_TEST") (== "KILL_SERVICE") lineActions
+        lines <- if (myHead == "HELO BASE_TEST" || myHead == "KILL_SERVICE")
+                        then return []
+                        else ioTakeWhile pred lineActions
         let myLines = ([myHead] ++ lines)
             msg = concat myLines
         print myLines
@@ -232,15 +234,13 @@ errmsg code desc = "ERROR_CODE: " ++ show code ++ "\n" ++
 splitColon :: String -> String
 splitColon str = (splitOn ":" str) !! 1
     
-ioTakeWhile :: (a -> Bool) -> (a -> Bool) -> (a -> Bool) -> [IO a] -> IO [a]
-ioTakeWhile pred1 pred2 pred3 actions = do
+ioTakeWhile :: (a -> Bool) -> [IO a] -> IO [a]
+ioTakeWhile pred actions = do
   print "DOWN HERE SON"
   x <- head actions
-  if (pred2 x || pred3 x)
+  if (pred x)
     then return [x]
-    else if (pred1 x)
-         then return [x]
-         else (ioTakeWhile pred1 pred2 pred3 (tail actions)) >>= \xs -> return (x:xs)
+    else (ioTakeWhile pred (tail actions)) >>= \xs -> return (x:xs)
 
 
 main :: IO ()
