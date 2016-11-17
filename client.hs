@@ -33,9 +33,9 @@ msgSender sock = do
                       "CLIENT_NAME:" ++ ((words msg)!!2)
             hPutStrLn handle myMsg
         "leave" -> do
-            let myMsg = "LEAVE_CHATROOM:" ++ ((words msg)!!1) ++ "\n" ++
-                       "JOIN_ID:" ++ ((words msg)!!2) ++ "\n" ++
-                       "CLIENT_NAME:" ++ ((words msg)!!3)
+            let myMsg = "LEAVE_CHATROOM: " ++ ((words msg)!!1) ++ "\n" ++
+                       "JOIN_ID: " ++ ((words msg)!!2) ++ "\n" ++
+                       "CLIENT_NAME: " ++ ((words msg)!!3)
             hPutStrLn handle myMsg
         "disc" -> do
             let myMsg = "DISCONNECT:0" ++ "\n" ++

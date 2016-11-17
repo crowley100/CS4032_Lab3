@@ -67,7 +67,6 @@ hdlConn (idMap,roomNames,roomMap,port,handle) = do
     t <- myThreadId
     print ("THREAD EXECTUING: " ++ (show t))
     fix $ \loop -> do
-        threadDelay 1000000
         print "top of loop!"
         let myIOHead = hGetLine handle
         myHead <- myIOHead
@@ -96,7 +95,7 @@ hdlConn (idMap,roomNames,roomMap,port,handle) = do
             "HELO BASE_TEST" -> do 
                 let hiMsg = myResponse msg "134.226.32.10" port
                 print "hereNOW"
-                --print hiMsg
+                print hiMsg
                 hPutStr handle hiMsg
                 hClose handle
                 t <- myThreadId
@@ -114,13 +113,13 @@ hdlConn (idMap,roomNames,roomMap,port,handle) = do
             "LEAVE_CHATROOM" -> do --clientLeave (kill sent joinID as it will match above (try to))
                 print "leave test"
                 rooms <- atomically $ readTVar roomMap
-                let roomRef = splitColon $ head myLines
-                    joinId = splitColon $ myLines !! 1
-                    clientName = splitColon $ myLines !! 2
+                let roomRef = ((words (splitColon $ head myLines))!!0)
+                    joinId = ((words (splitColon $ myLines !! 1))!!0)
+                    clientName = ((words (splitColon $ myLines !! 2))!!0)
                     echo = "LEFT_CHATROOM:" ++ roomRef ++ "\n" ++ "JOIN_ID:" ++ joinId  -- watch for \n here!
                 ids <- readMVar idMap
                 print joinId
-                case Map.lookup joinId ids of
+                case Map.lookup ((words joinId)!!0) ids of
                     Nothing -> do
                         print "leave test1"
                         print echo
@@ -211,7 +210,7 @@ clientJoin handle port roomNames roomName clientName roomMap = do
 buildResponse :: String -> String -> String -> String
 buildResponse roomRef clientName msg = "CHAT:" ++ roomRef ++ "\n" ++
                                        "CLIENT_NAME:" ++ clientName ++ "\n" ++
-                                       "MESSAGE:" ++ msg -- with \n?
+                                       "MESSAGE:" ++ msg ++ "\n" -- with \n?
 
 myResponse :: String -> String -> Int -> String
 myResponse msg host port = msg ++ "\n" ++
