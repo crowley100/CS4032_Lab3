@@ -52,15 +52,12 @@ runServer port = do
 -- handle connections  
 mainLoop :: Socket -> TVar (Map String ThreadId) -> TVar (Map String String) -> TVar (Map String (Chan String)) -> Chan (MVar [String],Int,TVar (Map String ThreadId),TVar (Map String String), TVar (Map String (Chan String)), Int, Handle) -> Int -> Int -> IO ()
 mainLoop sock ids roomNames roomMap input port cId = do
-    
-    --print (tstr ++ " mainloop!")
-    --print ("main line..." ++ (show t))
     (conn,_) <- accept sock     -- accept a new client connection
     handle <- socketToHandle conn ReadWriteMode
     hSetBuffering handle (BlockBuffering (Just 1))
     refs <- newMVar [] 
-    writeChan input (refs,cId,ids,roomNames,roomMap,port,handle) --pass id map in here (add to def for input chan) LOOK HERE FOR ID STUFF!!!
-    mainLoop sock ids roomNames roomMap input port (cId+1)        -- loop
+    writeChan input (refs,cId,ids,roomNames,roomMap,port,handle)
+    mainLoop sock ids roomNames roomMap input port (cId+1) -- loop
 
 getValidLine :: Handle -> IO String
 getValidLine hdl = do
@@ -75,10 +72,8 @@ hdlConn (roomRefList,cId,idMap,roomNames,roomMap,port,handle) = do
     t <- myThreadId -- create parent thread here
     print ("THREAD EXECTUING: " ++ (show t))
     fix $ \loop -> do
-        print "top of loop!"
-        --let myIOHead = hGetLine handle
         myHead <- getValidLine handle
-        print ("header:" ++ myHead ++ " id:" ++ (show t)) 
+        print ("header:" ++ myHead ++ " id:" ++ (show t))
         let header = ((splitOn ":" myHead) !!0)
             lineActions = repeat (hGetLine handle)
             pred = if (header == "CHAT")
@@ -89,23 +84,15 @@ hdlConn (roomRefList,cId,idMap,roomNames,roomMap,port,handle) = do
                         else ioTakeWhile pred lineActions
         let myLines = ([myHead] ++ lines)
             msg = concat myLines
-        print myLines
-        -- error handling here: accepted <- try (handler params) case accepted of Left error Right finish
-        --print ("YO -> " ++ header)
         case header of
             "KILL_SERVICE" -> do
-                --exitSuccess
                 hFlushAll handle
                 hClose handle
                 ids <- atomically $ readTVar idMap
-                print ids
                 let parentThread = Map.lookup "1" ids
-                --sClose sock -- clean up first? os.exit...
-                killThread (fromJust parentThread) -- Nothing? 
+                killThread (fromJust parentThread)
             "HELO BASE_TEST" -> do 
                 let hiMsg = myResponse msg "134.226.32.10" port
-                print "hereNOW"
-                print hiMsg
                 hPutStr handle hiMsg
                 hFlushAll handle
             "DISCONNECT" -> do
@@ -116,53 +103,37 @@ hdlConn (roomRefList,cId,idMap,roomNames,roomMap,port,handle) = do
                 rooms <- atomically $ readTVar roomMap
                 broadcastDisc refs 0 len rooms cName
                 threadDelay 500
-                -- thread delay here ? 
                 hClose handle
                 killThread (t)
-                -- kill myThreadId?
-            "JOIN_CHATROOM" -> do 
-                -- CHECK IF CLIENT IN ROOM HERE!!
-                print "im here"
+            "JOIN_CHATROOM" -> do
                 let rName = (splitColon $ head myLines)
                     cName = (splitColon $ myLines !! 3)
                 tId <- clientJoin roomRefList cId handle port roomNames rName cName roomMap
-                --ids <- atomically $ readTVar idMap
                 nameMap <- atomically $ readTVar roomNames
                 let myId = show cId
                     ref = fromJust (Map.lookup rName nameMap)
                 let newId = (myId ++ ref) -- room ref
-                    --newMap = Map.insert newId tId ids
-                print newId
                 atomically $ modifyTVar idMap (Map.insert newId tId)
-                --swapMVar idMap newMap
                 print ("newId: " ++ newId)
-            "LEAVE_CHATROOM" -> do --clientLeave (kill sent joinID as it will match above (try to))
-                print "leave test"
+            "LEAVE_CHATROOM" -> do
                 rooms <- atomically $ readTVar roomMap
                 refs <- readMVar roomRefList
                 let roomRef = ((words (splitColon $ head myLines))!!0)
                     joinId = ((words (splitColon $ myLines !! 1))!!0)
                     clientName = ((words (splitColon $ myLines !! 2))!!0)
-                    echo = "LEFT_CHATROOM:" ++ roomRef ++ "\n" ++ "JOIN_ID:" ++ joinId  -- watch for \n here!
+                    echo = "LEFT_CHATROOM:" ++ roomRef ++ "\n" ++ "JOIN_ID:" ++ joinId
                 ids <- atomically $ readTVar idMap
-                print joinId
                 let myIndex = joinId ++ roomRef
-                print myIndex
                 case Map.lookup myIndex ids of
                     Nothing -> do
-                        print "leave test1"
-                        print echo
                         hPutStrLn handle echo
-                        print "now here"
                     Just threadId -> do
                         let newRefs = Data.List.delete roomRef refs
                         swapMVar roomRefList newRefs
                         let chan = fromJust (Map.lookup roomRef rooms)
                         dupe <- dupChan chan
                         writeChan dupe (buildResponse roomRef clientName (clientName ++ " has left this chatroom."))
-                        print ("leave test2 id: " ++ (show threadId))
                         hPutStrLn handle echo
-                        print ("room ref: " ++ roomRef)
                         atomically $ modifyTVar idMap (Map.delete myIndex)
                         threadDelay 500
                         killThread threadId
@@ -172,35 +143,35 @@ hdlConn (roomRefList,cId,idMap,roomNames,roomMap,port,handle) = do
                 let joinId = (words (splitColon $ myLines !! 1))!!0
                     roomRef = (words (splitColon $ head myLines))!!0
                 let myIndex = (joinId++roomRef)
-                print ("OIOIOIOI LOL:"++myIndex)
-                print (toList ids)
                 case Map.lookup myIndex ids of
                     Nothing -> do
-                        print "hello orbison"
+                        --print "hello orbison"
                         hPutStrLn handle (errmsg 5 "Must join chatroom first") -- not in channel, send error
                     Just _ -> do
-                        print "hello orb"
+                        --print "hello orb"
                         case Map.lookup roomRef rooms of
                             Nothing -> do
                                 hPutStrLn handle (errmsg 0 "server error")
                             Just chan -> do
                                 dupe <- dupChan chan
-                                writeChan dupe (head myLines ++ "\n" ++ (myLines !! 2) ++ "\n" ++ (myLines !! 3) ++ "\n")
-            _ -> hPutStrLn handle $ "Unknown Message:" ++ msg
-        print "loop end"
+                                if (joinId /= "6")
+                                    then writeChan dupe (head myLines ++ "\n" ++ (myLines !! 2) ++ "\n" ++ (myLines !! 3) ++ "\n")
+                                    else do writeChan dupe (head myLines ++ "\n" ++ (myLines !! 2) ++ "\n" ++ (myLines !! 3) ++ "\n") -- end comms
+                                            threadDelay 10
+                                            print "closing..."
+                                            let parentThread = Map.lookup "1" ids
+                                            killThread (fromJust parentThread)
+                
+            _ -> putStrLn $ "Unknown Message:" ++ msg
         loop
-    print "DOWN HERE!"
     hClose handle
 
 clientJoin :: MVar [String] -> Int -> Handle -> Int -> TVar (Map String String) -> String -> String -> TVar (Map String (Chan String)) -> IO ThreadId--IO ThreadId?
 clientJoin roomRefList cId handle port roomNames roomName clientName roomMap = do
-    -- if user already present in room, do nothing (maybe check local list in above handler) yes... not here
-    -- checking room existence ( use shared list of room names for this )
     nameMap <- atomically $ readTVar roomNames
     rooms <- atomically $ readTVar roomMap
     refs <- readMVar roomRefList
     let joinId = show cId
-    --id <- myThreadId
     case Map.lookup roomName nameMap of
         Nothing -> do -- does not exist (create&join)
             print "it does not exist"
@@ -209,7 +180,6 @@ clientJoin roomRefList cId handle port roomNames roomName clientName roomMap = d
             -- thread for reading from the duplicated channel
             listener <- forkIO $ fix $ \loop -> do
                         msg <- readChan dupe
-                        print ("SPECIAL MSG: "++msg)
                         hPutStrLn handle msg
                         loop
             
@@ -224,7 +194,6 @@ clientJoin roomRefList cId handle port roomNames roomName clientName roomMap = d
             swapMVar roomRefList newRefs
             hPutStrLn handle response
             writeChan dupe (buildResponse ((words (show listener)) !! 1) clientName (clientName ++ " has joined this chatroom."))
-            print "hiooo"
             return listener
         Just roomRef -> do -- exists (join)
             print "it exists"
@@ -238,7 +207,6 @@ clientJoin roomRefList cId handle port roomNames roomName clientName roomMap = d
                     -- thread for reading from the duplicated channel
                     listener <- forkIO $ fix $ \loop -> do
                         msg <- readChan dupe
-                        print ("SPECIAL MSG: "++msg)
                         hPutStrLn handle msg
                         loop
                     let response = "JOINED_CHATROOM:" ++ roomName ++ "\n" ++
@@ -280,25 +248,20 @@ broadcastDisc refs i end rooms cName | i < end = do
                                                     threadDelay 10
                                                     broadcastDisc refs (i+1) end rooms cName
                                        | otherwise = return ()
-    
-     
--- syntax?                      
+
+                      
 splitColon :: String -> String
 splitColon str = (splitOn ":" str) !! 1
     
-ioTakeWhile :: (a -> Bool) -> [IO a] -> IO [a]
+ioTakeWhile :: (String -> Bool) -> [IO String] -> IO [String]
 ioTakeWhile pred actions = do
-  print "DOWN HERE SON"
-  threadDelay 5
-  x <- head actions
+  x <- (head actions)
   if (pred x)
     then return [x]
     else (ioTakeWhile pred (tail actions)) >>= \xs -> return (x:xs)
 
 main :: IO ()
 main = withSocketsDo $ do
-    t <- myThreadId
-    print ("mainlINE"++(show t))
     args <- getArgs
     let port = read $ head args :: Int
     runServer port
