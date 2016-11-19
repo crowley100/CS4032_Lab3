@@ -102,7 +102,7 @@ hdlConn (roomRefList,cId,idMap,roomNames,roomMap,port,handle) = do
                     cName = (splitColon $ myLines !! 2)
                 rooms <- atomically $ readTVar roomMap
                 broadcastDisc refs 0 len rooms cName
-                threadDelay 500
+                threadDelay 700
                 hClose handle
                 killThread (t)
             "JOIN_CHATROOM" -> do
